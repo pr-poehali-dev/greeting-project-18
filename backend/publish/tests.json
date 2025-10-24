@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Publish new site",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "html": "<h1>Test Site</h1>",
+        "css": "h1 { color: red; }",
+        "js": "console.log('test');"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "domain": "string",
+        "url": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

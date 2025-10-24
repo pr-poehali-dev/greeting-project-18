@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import CodeEditor from '@/components/CodeEditor';
+import VisualBuilder from '@/components/VisualBuilder';
 
 const Index = () => {
   const { toast } = useToast();
   const [htmlCode, setHtmlCode] = useState('<h1>Hello World!</h1>\n<p>Start coding...</p>');
   const [cssCode, setCssCode] = useState('body {\n  font-family: Arial;\n  padding: 20px;\n}\n\nh1 {\n  color: #a855f7;\n}');
   const [jsCode, setJsCode] = useState('console.log("PlutSites ready!");');
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishedUrl, setPublishedUrl] = useState('');
 
   const getPreviewContent = () => {
     return `
@@ -27,11 +31,39 @@ const Index = () => {
     `;
   };
 
-  const handlePublish = () => {
-    toast({
-      title: "🚀 Публикация сайта",
-      description: "Функция публикации скоро будет доступна! Ваш сайт будет опубликован с реальным доменом.",
-    });
+  const handlePublish = async () => {
+    setIsPublishing(true);
+    try {
+      const response = await fetch('https://functions.poehali.dev/c4698a17-171d-4da7-b5ce-7df72c87f5a6', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          html: htmlCode,
+          css: cssCode,
+          js: jsCode
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setPublishedUrl(`https://functions.poehali.dev/c4698a17-171d-4da7-b5ce-7df72c87f5a6?domain=${data.domain}`);
+        toast({
+          title: "🚀 Сайт опубликован!",
+          description: `Ваш сайт доступен по домену: ${data.domain}`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Ошибка публикации",
+        description: "Не удалось опубликовать сайт. Попробуйте позже.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
@@ -48,11 +80,19 @@ const Index = () => {
               <SheetContent side="left" className="w-64 bg-card border-primary/20">
                 <div className="flex flex-col gap-4 mt-8">
                   <Button 
+                    onClick={() => setShowBuilder(true)}
+                    className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-lg transition-all hover:scale-105"
+                  >
+                    <Icon name="Wand2" className="mr-2 h-5 w-5" />
+                    Конструктор
+                  </Button>
+                  <Button 
                     onClick={handlePublish}
+                    disabled={isPublishing}
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-lg neon-border transition-all hover:scale-105"
                   >
                     <Icon name="Rocket" className="mr-2 h-5 w-5" />
-                    Публикация
+                    {isPublishing ? 'Публикация...' : 'Публикация'}
                   </Button>
                   <Button 
                     asChild
@@ -63,6 +103,19 @@ const Index = () => {
                       Телеграмм
                     </a>
                   </Button>
+                  {publishedUrl && (
+                    <div className="mt-4 p-3 bg-primary/10 rounded-lg border border-primary/30">
+                      <p className="text-xs text-muted-foreground mb-2">Опубликованный сайт:</p>
+                      <a 
+                        href={publishedUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline break-all"
+                      >
+                        {publishedUrl}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
@@ -80,60 +133,14 @@ const Index = () => {
       </header>
 
       <main className="flex-1 flex flex-col container mx-auto p-4 gap-4">
-        <div className="flex-1 bg-card border border-primary/20 rounded-lg overflow-hidden neon-border">
-          <Tabs defaultValue="html" className="h-full flex flex-col">
-            <TabsList className="w-full justify-start rounded-none bg-muted/50 border-b border-primary/20 p-0">
-              <TabsTrigger 
-                value="html" 
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-base px-6 py-3 rounded-none border-r border-primary/20"
-              >
-                <Icon name="FileCode" className="mr-2 h-4 w-4" />
-                HTML
-              </TabsTrigger>
-              <TabsTrigger 
-                value="css"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-base px-6 py-3 rounded-none border-r border-primary/20"
-              >
-                <Icon name="Palette" className="mr-2 h-4 w-4" />
-                CSS
-              </TabsTrigger>
-              <TabsTrigger 
-                value="js"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-base px-6 py-3 rounded-none"
-              >
-                <Icon name="Zap" className="mr-2 h-4 w-4" />
-                JS
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="html" className="flex-1 m-0 p-0">
-              <Textarea
-                value={htmlCode}
-                onChange={(e) => setHtmlCode(e.target.value)}
-                className="h-full resize-none border-0 rounded-none bg-input text-foreground code-editor focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-sm p-4"
-                placeholder="Введите HTML код..."
-              />
-            </TabsContent>
-
-            <TabsContent value="css" className="flex-1 m-0 p-0">
-              <Textarea
-                value={cssCode}
-                onChange={(e) => setCssCode(e.target.value)}
-                className="h-full resize-none border-0 rounded-none bg-input text-foreground code-editor focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-sm p-4"
-                placeholder="Введите CSS код..."
-              />
-            </TabsContent>
-
-            <TabsContent value="js" className="flex-1 m-0 p-0">
-              <Textarea
-                value={jsCode}
-                onChange={(e) => setJsCode(e.target.value)}
-                className="h-full resize-none border-0 rounded-none bg-input text-foreground code-editor focus-visible:ring-0 focus-visible:ring-offset-0 font-mono text-sm p-4"
-                placeholder="Введите JavaScript код..."
-              />
-            </TabsContent>
-          </Tabs>
-        </div>
+        <CodeEditor 
+          htmlCode={htmlCode}
+          cssCode={cssCode}
+          jsCode={jsCode}
+          setHtmlCode={setHtmlCode}
+          setCssCode={setCssCode}
+          setJsCode={setJsCode}
+        />
 
         <div className="h-[400px] bg-card border border-secondary/30 rounded-lg overflow-hidden">
           <div className="bg-muted/50 border-b border-secondary/30 px-4 py-2 flex items-center gap-2">
@@ -154,6 +161,23 @@ const Index = () => {
           <p>PlutSites © 2025 • Создавайте и публикуйте сайты бесплатно</p>
         </div>
       </footer>
+
+      <Dialog open={showBuilder} onOpenChange={setShowBuilder}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-primary flex items-center gap-2">
+              <Icon name="Wand2" className="h-6 w-6" />
+              Визуальный конструктор
+            </DialogTitle>
+            <DialogDescription>
+              Создавайте сайт визуально, добавляя текст, ссылки и картинки
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <VisualBuilder setHtmlCode={setHtmlCode} setCssCode={setCssCode} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

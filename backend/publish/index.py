@@ -31,6 +31,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         html_code = body_data.get('html', '')
         css_code = body_data.get('css', '')
         js_code = body_data.get('js', '')
+        favicon_url = body_data.get('favicon', '')
         
         domain = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
         
@@ -39,8 +40,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(database_url)
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO sites (domain, html_code, css_code, js_code) VALUES (%s, %s, %s, %s) RETURNING domain",
-            (domain, html_code, css_code, js_code)
+            "INSERT INTO sites (domain, html_code, css_code, js_code, favicon_url) VALUES (%s, %s, %s, %s, %s) RETURNING domain",
+            (domain, html_code, css_code, js_code, favicon_url)
         )
         result = cur.fetchone()
         conn.commit()
@@ -77,7 +78,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conn = psycopg2.connect(database_url)
         cur = conn.cursor()
         cur.execute(
-            "SELECT html_code, css_code, js_code FROM sites WHERE domain = %s",
+            "SELECT html_code, css_code, js_code, favicon_url FROM sites WHERE domain = %s",
             (domain,)
         )
         result = cur.fetchone()
@@ -91,13 +92,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({'error': 'Site not found'})
             }
         
-        html_code, css_code, js_code = result
+        html_code, css_code, js_code, favicon_url = result
+        favicon_tag = f'<link rel="icon" href="{favicon_url}">' if favicon_url else ''
         
         full_html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {favicon_tag}
     <style>{css_code}</style>
 </head>
 <body>

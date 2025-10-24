@@ -1,20 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import CodeEditor from '@/components/CodeEditor';
 import VisualBuilder from '@/components/VisualBuilder';
+import FaviconUploader from '@/components/FaviconUploader';
 
 const Index = () => {
   const { toast } = useToast();
   const [htmlCode, setHtmlCode] = useState('<h1>Hello World!</h1>\n<p>Start coding...</p>');
   const [cssCode, setCssCode] = useState('body {\n  font-family: Arial;\n  padding: 20px;\n}\n\nh1 {\n  color: #a855f7;\n}');
   const [jsCode, setJsCode] = useState('console.log("PlutSites ready!");');
+  const [faviconUrl, setFaviconUrl] = useState('');
   const [showBuilder, setShowBuilder] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState('');
+  const [projects, setProjects] = useState<any[]>([]);
+  const [currentProjectId, setCurrentProjectId] = useState<number | null>(null);
+  const [showProjects, setShowProjects] = useState(false);
+  const [userId] = useState(() => localStorage.getItem('plutsites_user_id') || `user_${Date.now()}`);
 
   const getPreviewContent = () => {
     return `
@@ -42,7 +50,8 @@ const Index = () => {
         body: JSON.stringify({
           html: htmlCode,
           css: cssCode,
-          js: jsCode
+          js: jsCode,
+          favicon: faviconUrl
         })
       });
       
@@ -66,6 +75,92 @@ const Index = () => {
     }
   };
 
+  const saveProject = async (name: string) => {
+    try {
+      localStorage.setItem('plutsites_user_id', userId);
+      
+      const url = currentProjectId 
+        ? 'https://functions.poehali.dev/9c8b0454-cfe3-4052-95c1-8890f5cd34d6'
+        : 'https://functions.poehali.dev/9c8b0454-cfe3-4052-95c1-8890f5cd34d6';
+      
+      const method = currentProjectId ? 'PUT' : 'POST';
+      const body = currentProjectId 
+        ? { id: currentProjectId, name, html: htmlCode, css: cssCode, js: jsCode, favicon: faviconUrl }
+        : { name, html: htmlCode, css: cssCode, js: jsCode, favicon: faviconUrl };
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
+        body: JSON.stringify(body)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        if (!currentProjectId && data.id) {
+          setCurrentProjectId(data.id);
+        }
+        toast({
+          title: "✅ Проект сохранен",
+          description: `Проект "${name}" успешно сохранен`,
+        });
+        loadProjects();
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Ошибка",
+        description: "Не удалось сохранить проект",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const loadProjects = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/9c8b0454-cfe3-4052-95c1-8890f5cd34d6', {
+        headers: {
+          'X-User-Id': userId
+        }
+      });
+      const data = await response.json();
+      setProjects(data.projects || []);
+    } catch (error) {
+      console.error('Failed to load projects', error);
+    }
+  };
+
+  const loadProject = async (id: number) => {
+    try {
+      const response = await fetch(`https://functions.poehali.dev/9c8b0454-cfe3-4052-95c1-8890f5cd34d6?id=${id}`, {
+        headers: {
+          'X-User-Id': userId
+        }
+      });
+      const data = await response.json();
+      
+      setHtmlCode(data.html);
+      setCssCode(data.css);
+      setJsCode(data.js);
+      setFaviconUrl(data.favicon || '');
+      setCurrentProjectId(id);
+      setShowProjects(false);
+      
+      toast({
+        title: "📂 Проект загружен",
+        description: `Проект "${data.name}" успешно загружен`,
+      });
+    } catch (error) {
+      toast({
+        title: "❌ Ошибка",
+        description: "Не удалось загрузить проект",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-primary/20 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -77,7 +172,7 @@ const Index = () => {
                   <Icon name="Menu" className="h-6 w-6 text-primary" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-64 bg-card border-primary/20">
+              <SheetContent side="left" className="w-80 bg-card border-primary/20 overflow-y-auto">
                 <div className="flex flex-col gap-4 mt-8">
                   <Button 
                     onClick={() => setShowBuilder(true)}
@@ -86,6 +181,31 @@ const Index = () => {
                     <Icon name="Wand2" className="mr-2 h-5 w-5" />
                     Конструктор
                   </Button>
+                  
+                  <Button 
+                    onClick={() => {
+                      setShowProjects(true);
+                      loadProjects();
+                    }}
+                    className="w-full bg-muted hover:bg-muted/80 text-foreground font-semibold text-lg transition-all hover:scale-105"
+                  >
+                    <Icon name="FolderOpen" className="mr-2 h-5 w-5" />
+                    Проекты
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => {
+                      const name = prompt('Название проекта:', currentProjectId ? 'Текущий проект' : 'Новый проект');
+                      if (name) saveProject(name);
+                    }}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold text-lg transition-all hover:scale-105"
+                  >
+                    <Icon name="Save" className="mr-2 h-5 w-5" />
+                    Сохранить
+                  </Button>
+                  
+                  <FaviconUploader faviconUrl={faviconUrl} setFaviconUrl={setFaviconUrl} />
+                  
                   <Button 
                     onClick={handlePublish}
                     disabled={isPublishing}
@@ -175,6 +295,46 @@ const Index = () => {
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             <VisualBuilder setHtmlCode={setHtmlCode} setCssCode={setCssCode} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showProjects} onOpenChange={setShowProjects}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-primary flex items-center gap-2">
+              <Icon name="FolderOpen" className="h-6 w-6" />
+              Мои проекты
+            </DialogTitle>
+            <DialogDescription>
+              Выберите проект для загрузки
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            {projects.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Icon name="Inbox" className="h-12 w-12 mx-auto mb-4 text-primary/40" />
+                <p>У вас пока нет сохраненных проектов</p>
+              </div>
+            ) : (
+              projects.map((project) => (
+                <Card 
+                  key={project.id}
+                  className="p-4 hover:bg-muted/50 cursor-pointer transition-colors border-primary/20"
+                  onClick={() => loadProject(project.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">{project.name}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Обновлен: {new Date(project.updated_at).toLocaleString('ru-RU')}
+                      </p>
+                    </div>
+                    <Icon name="ChevronRight" className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </Card>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>

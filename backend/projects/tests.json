@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "name": "Create new project",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "test-user"
+      },
+      "body": {
+        "name": "Test Project",
+        "html": "<h1>Test</h1>",
+        "css": "h1 { color: blue; }",
+        "js": "console.log('test');"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get all projects",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-User-Id": "test-user"
+      },
+      "expectedStatus": 200,
+      "expectedStatus": 200
+    }
+  ]
+}
